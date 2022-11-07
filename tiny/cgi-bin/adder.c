@@ -18,14 +18,12 @@ int main(void) {
   //   n1 = atoi(arg1);        // 문자를 정수로
   //   n2 = atoi(arg2);
   // }
-  printf("adder 들어옴\n");
-
 
   if ((buf = getenv("QUERY_STRING")) != NULL) { // 인자 전달된 경우
     p = strchr(buf, '&');   // strchr: 문자열 내에 일치하는 문자가 있는지 검사, '&'가 존재하면 해당 포인터 반환
     *p = '\0';              // '&'를 '\0'로 바꾸기
-    sscanf(buf, "num1=%d", n1);
-    sscanf(p+1, "num2=%d", n2);
+    sscanf(buf, "num1=%d", &n1);
+    sscanf(p+1, "num2=%d", &n2);
     printf("n1: %d, n2: %d", n1, n2);
 
   }  
