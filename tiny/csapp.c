@@ -70,7 +70,6 @@ void dns_error(char *msg) /* Obsolete gethostbyname error */
 pid_t Fork(void) 
 {
     pid_t pid;
-
     if ((pid = fork()) < 0)
 	unix_error("Fork error");
     return pid;
@@ -79,8 +78,9 @@ pid_t Fork(void)
 
 void Execve(const char *filename, char *const argv[], char *const envp[]) 
 {
-    if (execve(filename, argv, envp) < 0)
-	unix_error("Execve error");
+    if (execve(filename, argv, envp) < 0){
+        printf("jfawieljfla\n");
+	unix_error("Execve error");}
 }
 
 /* $begin wait */
@@ -375,9 +375,9 @@ int Select(int  n, fd_set *readfds, fd_set *writefds,
 int Dup2(int fd1, int fd2) 
 {
     int rc;
-
-    if ((rc = dup2(fd1, fd2)) < 0)
-	unix_error("Dup2 error");
+    if ((rc = dup2(fd1, fd2)) < 0){
+        unix_error("Dup2 error");
+    }
     return rc;
 }
 
