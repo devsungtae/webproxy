@@ -11,9 +11,9 @@
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize);
+void serve_static(int fd, char *filename, int filesize, char *method);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *filename, char *cgiargs);
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -65,7 +65,7 @@ void doit(int fd)
   // s1 > s2 return 양수
   // s1 = s2 return 0
   // s1 < s2 return 음수
-  if (strcasecmp(method, "GET")) {                  // tiny는 GET 메소드만 받음
+  if (strcasecmp(method, "GET") && strcasecmp(method, "HEAD")) {  // tiny는 GET, HEAD 메소드만 받음
     clienterror(fd, method, "501", "Not implemented", 
              "Tiny does not implement this method");
              return;
@@ -85,7 +85,7 @@ void doit(int fd)
                   "Tiny couldn't read the file");
       return;
     }
-    serve_static(fd, filename, sbuf.st_size);       // 정적 컨텐츠 클라에게 제공
+    serve_static(fd, filename, sbuf.st_size, method);       // 정적 컨텐츠 클라에게 제공
   }
   else {  /* Serve dynamic content */               // 동적 컨텐츠인 경우
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {  // 파일이 실행 가능한지 검증  
@@ -93,7 +93,7 @@ void doit(int fd)
                   "Tiny couldn't run the CGI program");
       return;
     }
-    serve_dynamic(fd, filename, cgiargs);           // 동적 컨텐츠 클라에게 제공
+    serve_dynamic(fd, filename, cgiargs, method);           // 동적 컨텐츠 클라에게 제공
   }
 }
 
@@ -148,7 +148,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
   // 
   if (!strstr(uri, "cgi-bin")) {  /* Static content */ // /cgi-bin을 포함하는 모든 URI는 동적 컨텐츠 요청이라고 가정
     strcpy(cgiargs, "");          // CGI 인자 스트링을 지운다 
-    strcpy(filename, ".");        // URI를 ./index.html 같은 상대 리눅스 경로이름으로 변환
+    strcpy(filename, ".");//linux에서 현재 디렉토리 // URI를 ./index.html 같은 상대 리눅스 경로이름으로 변환
     strcat(filename, uri);
     if (uri[strlen(uri)-1] == '/')    // URI가 '/'문자로 끝나면
       strcat(filename, "home.html");  // 기본 파일 이름(home.html)을 추가함
@@ -160,7 +160,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
       strcpy(cgiargs, ptr+1);   //  |
       *ptr = '\0';              //  |
     }                           //  |
-    else                        //  |
+    else  // CGI인자 없으면 비움    //  |
       strcpy(cgiargs, "");      //  | 모든 CGI 인자들을 추출
     strcpy(filename, ".");  // 나머지 URI 부분을 상대 리눅스 파일 이름으로 변환
     strcat(filename, uri);  //
@@ -171,7 +171,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
 /*
  * serve_static : 정적 컨텐츠를 클라이언트에게 서비스함
  */
-void serve_static(int fd, char *filename, int filesize)
+void serve_static(int fd, char *filename, int filesize, char *method)
 { // 지원하는 정적 컨텐츠 타입 5개 : HTML file, 무형식 text file, GIF, PNG, JPEG로 인코딩된 영상
   int srcfd;  
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
@@ -186,6 +186,9 @@ void serve_static(int fd, char *filename, int filesize)
   Rio_writen(fd, buf, strlen(buf));                         // buf에 있는 요청한 파일의 내용을 연결식별자 fd로 복사
   printf("Response headers:\n");
   printf("%s", buf);    // buf 출력
+  
+  if (!strcasecmp(method, "HEAD"))  // HEAD 요청 나오면 헤더만 보내주기
+    return;
 
   /* Send response body to client */  // response body를 클라에게 보냄
   srcfd = Open(filename, O_RDONLY, 0);// O_RDONLY -> 파일을 읽기 전용으로 오픈 // 읽기 위해 filename open하고 식별자 얻어옴
@@ -227,7 +230,7 @@ void serve_static(int fd, char *filename, int filesize)
 /*
  * serve_dynamic : 동적콘텐츠를 클라이언트에 제공
  */
- void serve_dynamic(int fd, char *filename, char *cgiargs)  // Tiny는 child process를 fork하고, 그 후 CGI프로그램을 child의 context에서 실행함, 모든 종류 동적 컨텐츠 제공
+ void serve_dynamic(int fd, char *filename, char *cgiargs, char *method)  // Tiny는 child process를 fork하고, 그 후 CGI프로그램을 child의 context에서 실행함, 모든 종류 동적 컨텐츠 제공
  {
   char buf[MAXLINE], *emptylist[] = { NULL };
 
@@ -236,6 +239,9 @@ void serve_static(int fd, char *filename, int filesize)
   Rio_writen(fd, buf, strlen(buf));
   sprintf(buf, "Server: Tiny Web Server\r\n");
   Rio_writen(fd, buf, strlen(buf));
+  if (!strcasecmp(method, "HEAD"))  // HEAD 요청 나오면 헤더만 보내주기
+    return;
+
   if (Fork() == 0) {  /* Child */ // child 프로세스 fork
     /* Real server would set all CGI vars here */
     setenv("QUERY_STRING", cgiargs, 1); // child는 QUERY_STRING 환경변수를 요청 URI의 CGI 인자들로 초기화한다
