@@ -22,12 +22,15 @@ void doit(int connfd);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 void parse_uri(char *uri,char *hostname,char *path,int *port);
 int make_request(rio_t* client_rio, char *hostname, char *path, int port, char *hdr, char *method);
+void *thread(void *vargp);  // Pthread_create 에 루틴 반환형이 정의되어있음
+void sigpipe_handler(int sig);
 
 int main(int argc, char **argv) { // tiny : 반복실행 서버로 명령줄에서 넘겨받은 포트로의 연결요청을 듣는다
-  int listenfd, connfd;
+  int listenfd, *clientfd;
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;                // ????
   struct sockaddr_storage clientaddr; // ????
+  pthread_t tid;  // peer 스레드에 부여할 tid 번호 (unsigned long)
 
   /* Check command line args */
   if (argc != 2) {  // 주소를 올바르게 입력해야 함
@@ -35,21 +38,39 @@ int main(int argc, char **argv) { // tiny : 반복실행 서버로 명령줄에�
     exit(1);
   }
 
+  Signal(SIGPIPE, sigpipe_handler);
+
   listenfd = Open_listenfd(argv[1]);      // 입력받은 포트에 듣기 소켓을 연다
   while (1) {                             // 무한 서버 루프 실행
     clientlen = sizeof(clientaddr);
-    connfd = Accept(listenfd, (SA *)&clientaddr,  // 반복적으로 연결요청 접수
-                    &clientlen);  // line:netp:tiny:accept
+    clientfd = (int *)Malloc(sizeof(int));   // 여러개의 디스크립터를 만들 것이므로 덮어쓰지 못하도록 고유메모리에 할당 // 반복적으로 연결요청 접수 
+    *clientfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // 프록시가 서버로서 클라이언트와 맺는 파일 디스크립터(소켓 디스크립터) : 고유 식별되는 회선이자 메모리 그 자체
 
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE,
                     0); // print accepted message
     printf("Accepted connection from (%s, %s)\n", hostname, port);
 
     // sequential handle the client transaction
-    doit(connfd);   // line:netp:tiny:doit    // 트랜잭션 수행
-    Close(connfd);  // line:netp:tiny:close   // 자신 쪽의 connection endpoint 닫기
+    //doit(clientfd);   // line:netp:tiny:doit    // 트랜잭션 수행
+    //Close(clientfd);  // line:netp:tiny:close   // 자신 쪽의 connection endpoint 닫기
+    Pthread_create(&tid, NULL, thread, clientfd);
     printf("\n=====disconnect=====\n");
   }
+}
+
+void *thread(void *argptr) {
+  int clientfd = *((int *)argptr);
+  Pthread_detach((pthread_self()));
+  Free(argptr);
+  Signal(SIGPIPE, sigpipe_handler);
+  doit(clientfd);
+  Close(clientfd);
+  return NULL;
+}
+
+void sigpipe_handler(int sig) {
+    printf("SIGPIPE handled\n");
+    return;
 }
 
 /*
