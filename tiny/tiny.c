@@ -60,6 +60,8 @@ void doit(int fd)
   printf("Request headers:\n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
+  
+  printf("method: %s, uri: %s, version: %s\n", method, uri, version);
 
   // strcasecmp(s1, s2) : s1, s2 대소문자를 구분하지 않고 비교
   // s1 > s2 return 양수
@@ -100,6 +102,7 @@ void doit(int fd)
 /*
  * clienterror : 에러 메시지를 클라이언트에게 보냄
  */
+ /* $begin clienterror */
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg)
 {
   char buf[MAXLINE], body[MAXBUF];
@@ -123,6 +126,7 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
   Rio_writen(fd, buf, strlen(buf));
   Rio_writen(fd, body, strlen(body));
 }
+ /* $end clienterror */
 
 /*
  * read_requesthdrs : 요청 헤더를 읽고 무시한다. 
@@ -175,7 +179,6 @@ void serve_static(int fd, char *filename, int filesize, char *method)
 { // 지원하는 정적 컨텐츠 타입 5개 : HTML file, 무형식 text file, GIF, PNG, JPEG로 인코딩된 영상
   int srcfd;  
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
-
   /* Send response headers to client */
   get_filetype(filename, filetype);                         // 파일 타입 알아내기
   sprintf(buf, "HTTP/1.0 200 OK\r\n");                      // 클라에게 응답 줄과 응답 헤더를 보냄
