@@ -190,11 +190,14 @@ void parse_uri(char *uri, char *hostname, char *path, int *port)
     if (parsed2 == NULL) {  // 포트 뒤 경로가 없는 경우
       sscanf(parsed, "%s", hostname); // hostname에 parsed를 넣기
     }
-    else {  // 경로가 있는 경우
-      printf("parsed=%s parsed2=%s\n", parsed, parsed2);
-      *parsed2 = '\0';  /////////////////????????????? 왜 있지??????
-      sscanf(parsed,"%s",hostname); // hostname에 parsed 넣기
-      *parsed2 = '/';
+    else {  // 경로가 있는 경우 ex) http://123.123.123.123/web.index, 
+      // parsed 포인터는 hostname 제일 앞글자 1 가리킴, parsed2 포인터는 hostname 뒤 '/' 위치 가리킴
+      // parsed: 123.123.123.123/web.index
+      // parsed2: /web.index
+      printf("parsed=%s parsed2=%s\n", parsed, parsed2); 
+      *parsed2 = '\0';  // 123.123.123.123/web.index -> 123.123.123.123\0web.index
+      sscanf(parsed,"%s",hostname); // hostname에 parsed 넣기, parsed: 123.123.123.123\0
+      *parsed2 = '/'; // '\0'를 다시 '/'로 바꿈, parsed2: /web.index
       sscanf(parsed2,"%s",path);    // path에 parsed2 넣기
     }
   }

@@ -5,6 +5,7 @@
 ####################################################################
 
 sequential : 40/40
+concurrency : 15/15
 
 This directory contains the files you will need for the CS:APP Proxy
 Lab.
