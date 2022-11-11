@@ -28,8 +28,8 @@ void sigpipe_handler(int sig);
 int main(int argc, char **argv) { // tiny : 반복실행 서버로 명령줄에서 넘겨받은 포트로의 연결요청을 듣는다
   int listenfd, *clientfd;
   char hostname[MAXLINE], port[MAXLINE];
-  socklen_t clientlen;                // ????
-  struct sockaddr_storage clientaddr; // ????
+  socklen_t clientlen;                // 
+  struct sockaddr_storage clientaddr; // 소켓스토리지
   pthread_t tid;  // peer 스레드에 부여할 tid 번호 (unsigned long)
 
   /* Check command line args */
